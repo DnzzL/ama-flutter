@@ -1,11 +1,5 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:firebase_ml_vision/firebase_ml_vision.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mlkit/ui/questionanswering.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
 
 void main() => runApp(MyApp());
 

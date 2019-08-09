@@ -1,13 +1,11 @@
-import 'dart:io';
-
-import 'package:flutter/cupertino.dart';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_ml_vision/firebase_ml_vision.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class QuestionAnswering extends StatefulWidget {
   @override
