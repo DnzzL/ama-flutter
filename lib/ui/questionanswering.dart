@@ -13,7 +13,7 @@ class QuestionAnswering extends StatefulWidget {
 }
 
 class QuestionAnsweringState extends State {
-  File pickedImage;
+  File _image;
   final _questionController = TextEditingController();
   final _answerController = TextEditingController();
   bool isImageLoaded = false;
@@ -21,16 +21,15 @@ class QuestionAnsweringState extends State {
   bool _isTextFieldVisible = false;
 
   Future _pickImage() async {
-    var tempStore = await ImagePicker.pickImage(
+    var image = await ImagePicker.pickImage(
         source: ImageSource.gallery, maxWidth: 1024, maxHeight: 1024);
 
     setState(() {
-      pickedImage = tempStore;
+      _image = image;
       isImageLoaded = true;
       _questionController.text = "";
       _answerController.text = "";
       _isTextFieldVisible = false;
-      ;
     });
   }
 
@@ -38,7 +37,7 @@ class QuestionAnsweringState extends State {
     setState(() {
       _isTextFieldVisible = false;
     });
-    FirebaseVisionImage ourImage = FirebaseVisionImage.fromFile(pickedImage);
+    FirebaseVisionImage ourImage = FirebaseVisionImage.fromFile(_image);
     TextRecognizer recognizeText = FirebaseVision.instance.textRecognizer();
     VisionText readText = await recognizeText.processImage(ourImage);
 
@@ -82,13 +81,18 @@ class QuestionAnsweringState extends State {
                 ? new Container(
                     margin: new EdgeInsets.symmetric(horizontal: 4.0),
                     child: Center(
-                      child: Container(
-                          height: 300.0,
-                          width: 300.0,
-                          decoration: BoxDecoration(
-                              image: DecorationImage(
-                                  image: FileImage(pickedImage),
-                                  fit: BoxFit.cover))),
+                      child: _image == null
+                          ? new Container(
+                              margin: new EdgeInsets.symmetric(vertical: 20.0),
+                              child: Text('No image selected.'),
+                            )
+                          : Container(
+                              height: 300.0,
+                              width: 300.0,
+                              decoration: BoxDecoration(
+                                  image: DecorationImage(
+                                      image: FileImage(_image),
+                                      fit: BoxFit.cover))),
                     ))
                 : Container(),
             new Container(
@@ -109,22 +113,24 @@ class QuestionAnsweringState extends State {
       child: new Container(
         //modified
         margin: const EdgeInsets.symmetric(horizontal: 10.0),
-        child: new Row(
-          children: <Widget>[
-            new Flexible(
-              child: new TextField(
-                controller: _questionController,
-                decoration:
-                    new InputDecoration.collapsed(hintText: "Ask a question"),
-              ),
-            ),
-            new Container(
-              margin: new EdgeInsets.symmetric(horizontal: 6.0),
-              child: new IconButton(
-                  icon: new Icon(Icons.send), onPressed: _answerQuestion),
-            ),
-          ],
-        ),
+        child: _image != null
+            ? new Row(
+                children: <Widget>[
+                  new Flexible(
+                    child: new TextField(
+                      controller: _questionController,
+                      decoration: new InputDecoration.collapsed(
+                          hintText: "Ask a question"),
+                    ),
+                  ),
+                  new Container(
+                    margin: new EdgeInsets.symmetric(horizontal: 6.0),
+                    child: new IconButton(
+                        icon: new Icon(Icons.send), onPressed: _answerQuestion),
+                  ),
+                ],
+              )
+            : Container(),
       ), //new
     );
   }
@@ -158,13 +164,13 @@ class QuestionAnsweringState extends State {
     return Scaffold(
         body: SingleChildScrollView(
             child: Column(
-          children: <Widget>[
-            _buildImageComposer(),
-            SizedBox(height: 15.0),
-            _buildQuestionComposer(),
-            SizedBox(height: 15.0),
-            _buildAnswerComposer()
-          ],
-        )));
+      children: <Widget>[
+        _buildImageComposer(),
+        SizedBox(height: 15.0),
+        _buildQuestionComposer(),
+        SizedBox(height: 15.0),
+        _buildAnswerComposer()
+      ],
+    )));
   }
 }
