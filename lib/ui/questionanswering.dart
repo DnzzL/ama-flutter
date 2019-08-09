@@ -14,11 +14,76 @@ class QuestionAnswering extends StatefulWidget {
 
 class QuestionAnsweringState extends State {
   File _image;
+  var client = new http.Client();
   final _questionController = TextEditingController();
   final _answerController = TextEditingController();
+  final _summaryController = TextEditingController();
   bool isImageLoaded = false;
-  var client = new http.Client();
-  bool _isTextFieldVisible = false;
+  bool isTextFieldVisible = false;
+  bool summaryMode = false;
+  bool conversationMode = false;
+
+  Widget _buildButtonColumn(
+      Color color, IconData icon, String label, Function() onPressed) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          icon: new Icon(icon),
+          color: color,
+          onPressed: onPressed,
+          iconSize: 32,
+        ),
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _getButtonSection() {
+    return Container(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildButtonColumn(Theme.of(context).accentColor, Icons.short_text,
+              'Summary', _summarize),
+          _buildButtonColumn(Theme.of(context).accentColor,
+              Icons.question_answer, 'Q&A', _toConversation),
+          _buildButtonColumn(
+              Theme.of(context).accentColor, Icons.clear, 'Clear', _clearImage),
+        ],
+      ),
+    );
+  }
+
+  void _clearImage() {
+    setState(() {
+      _image = null;
+      isImageLoaded = false;
+      isTextFieldVisible = false;
+      summaryMode = false;
+      conversationMode = false;
+    });
+  }
+
+  void _toConversation() {
+    setState(() {
+      summaryMode = false;
+      conversationMode = true;
+    });
+  }
+
+
 
   Future _pickImage() async {
     var image = await ImagePicker.pickImage(
@@ -27,15 +92,12 @@ class QuestionAnsweringState extends State {
     setState(() {
       _image = image;
       isImageLoaded = true;
-      _questionController.text = "";
-      _answerController.text = "";
-      _isTextFieldVisible = false;
     });
   }
 
   Future _readText() async {
     setState(() {
-      _isTextFieldVisible = false;
+      isTextFieldVisible = false;
     });
     FirebaseVisionImage ourImage = FirebaseVisionImage.fromFile(_image);
     TextRecognizer recognizeText = FirebaseVision.instance.textRecognizer();
@@ -63,8 +125,24 @@ class QuestionAnsweringState extends State {
         headers: headers, body: json.encode(request));
 
     setState(() {
+      summaryMode = false;
+      conversationMode = true;
       _answerController.text = json.decode(response.body);
-      _isTextFieldVisible = true;
+      isTextFieldVisible = true;
+    });
+  }
+
+  Future _summarize() async {
+    var text = await _readText();
+    var headers = {"Content-Type": "application/json"};
+    var request = {'text': text};
+
+    var response = await http.post("http://10.0.2.2:8000/summarize",
+        headers: headers, body: json.encode(request));
+    setState(() {
+      summaryMode = true;
+      conversationMode = false;
+      _summaryController.text = json.decode(response.body);
     });
   }
 
@@ -77,29 +155,34 @@ class QuestionAnsweringState extends State {
         margin: const EdgeInsets.symmetric(horizontal: 10.0),
         child: new Column(
           children: <Widget>[
-            isImageLoaded
-                ? new Container(
-                    margin: new EdgeInsets.symmetric(horizontal: 4.0),
-                    child: Center(
-                      child: _image == null
-                          ? new Container(
-                              margin: new EdgeInsets.symmetric(vertical: 20.0),
-                              child: Text('No image selected.'),
-                            )
-                          : Container(
-                              height: 300.0,
-                              width: 300.0,
-                              decoration: BoxDecoration(
-                                  image: DecorationImage(
-                                      image: FileImage(_image),
-                                      fit: BoxFit.cover))),
-                    ))
-                : Container(),
             new Container(
-              margin: new EdgeInsets.symmetric(horizontal: 4.0),
-              child: new IconButton(
-                  icon: new Icon(Icons.photo_library), onPressed: _pickImage),
-            ),
+                margin: new EdgeInsets.symmetric(horizontal: 4.0),
+                child: Center(
+                  child: _image == null
+                      ? new Column(
+                          children: <Widget>[
+                            new Container(
+                              margin: new EdgeInsets.symmetric(horizontal: 4.0),
+                              child: new IconButton(
+                                icon: new Icon(Icons.photo_library),
+                                onPressed: _pickImage,
+                                iconSize: 60,
+                              ),
+                            ),
+                            new Container(
+                              margin: new EdgeInsets.symmetric(vertical: 5.0),
+                              child: Text('Select an image'),
+                            ),
+                          ],
+                        )
+                      : Container(
+                          height: 300.0,
+                          width: 300.0,
+                          decoration: BoxDecoration(
+                              image: DecorationImage(
+                                  image: FileImage(_image),
+                                  fit: BoxFit.cover))),
+                )),
           ],
         ),
       ), //new
@@ -113,8 +196,7 @@ class QuestionAnsweringState extends State {
       child: new Container(
         //modified
         margin: const EdgeInsets.symmetric(horizontal: 10.0),
-        child: _image != null
-            ? new Row(
+        child: new Row(
                 children: <Widget>[
                   new Flexible(
                     child: new TextField(
@@ -127,10 +209,9 @@ class QuestionAnsweringState extends State {
                     margin: new EdgeInsets.symmetric(horizontal: 6.0),
                     child: new IconButton(
                         icon: new Icon(Icons.send), onPressed: _answerQuestion),
-                  ),
+                  )
                 ],
               )
-            : Container(),
       ), //new
     );
   }
@@ -145,17 +226,31 @@ class QuestionAnsweringState extends State {
         child: new Row(
           children: <Widget>[
             new Flexible(
-              child: _isTextFieldVisible
-                  ? new TextField(
-                      decoration: InputDecoration(labelText: 'Answer'),
-                      readOnly: true,
-                      controller: _answerController,
-                    )
-                  : Container(),
-            ),
+                child: new TextField(
+              decoration: InputDecoration(labelText: 'Answer'),
+              readOnly: true,
+              controller: _answerController,
+            )),
           ],
         ),
       ), //new
+    );
+  }
+
+  Widget _buildSummaryComposer() {
+    return new Container(
+      //modified
+      margin: const EdgeInsets.symmetric(horizontal: 10.0),
+      child: new Row(
+        children: <Widget>[
+          new Flexible(
+              child: new TextField(
+            decoration: InputDecoration(labelText: 'Answer'),
+            readOnly: true,
+            controller: _summaryController,
+          )),
+        ],
+      ),
     );
   }
 
@@ -166,10 +261,18 @@ class QuestionAnsweringState extends State {
             child: Column(
       children: <Widget>[
         _buildImageComposer(),
+        isImageLoaded ? _getButtonSection() : new Container(),
         SizedBox(height: 15.0),
-        _buildQuestionComposer(),
+        isImageLoaded & summaryMode ? _buildSummaryComposer() : new Container(),
         SizedBox(height: 15.0),
-        _buildAnswerComposer()
+        isImageLoaded & conversationMode
+            ? new Column(
+                children: <Widget>[
+                  _buildQuestionComposer(),
+                  _buildAnswerComposer(),
+                ],
+              )
+            : new Container(),
       ],
     )));
   }
